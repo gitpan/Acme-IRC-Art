@@ -2,11 +2,12 @@
 package Acme::IRC::Art;
 use strict;
 use Carp;
+no warnings;
 
 BEGIN {
 	use Exporter ();
 	use vars qw ($VERSION @ISA @EXPORT @EXPORT_OK %EXPORT_TAGS);
-	$VERSION     = 0.1;
+	$VERSION     = 0.2;
 	@ISA         = qw (Exporter);
 	#Give a hoot don't pollute, do not export more than needed by default
 	@EXPORT      = qw ();
@@ -65,9 +66,9 @@ si par exemple vous definissez un texte puis que vous dessinez un rectangle dess
 
 
 sub new  {
-  my ($class,$largeur,$hauteur) = @_;
+  my ($class, $largeur, $hauteur) = @_;
+  
   #gestion d'erreur
-
   my $syntaxe = 'Syntaxe correcte : $deco = Art->new(largeur, hauteur)';
   croak("Les arguments de la fonction \'new\' de Art.pm sont: la largeur et la hauteur du canevas
    $syntaxe") if @_!=3;
@@ -80,7 +81,7 @@ sub new  {
   $hauteur-- and $largeur--;
   my @canevas;
   $#canevas = $hauteur;
-  #remplit avec des espaces
+  #fill with spaces
   foreach my $temp (0..$hauteur)  {
     foreach my $temp2 (0..$largeur)   {
       $canevas[$temp][$temp2] = " ";
@@ -105,9 +106,9 @@ de messages à envoyer pour afficher votre dessin.
 =cut
 
 sub result {
- my ($this) = @_;
+ my ($this) = shift;
  use Data::Dumper;
- return map {join '',@{$_}}@{$this->{canevas}};
+ return map {join '',@{$_}} @{$this->{canevas}};
 }
 
 
@@ -138,11 +139,10 @@ x et en y doivent correspondent une à une, exemple pour remplir la diagional d'u
 =cut
 
 sub pixel  {
-  my ($this,$x,$y,$color,$on) = @_;
+  my ($this, $x, $y, $color, $on) = @_;
   my @canevas = @{$this->{canevas}};
  
   #gestion d'erreur
-
   my $syntaxe = '$deco->pixel( position x , position y , couleur , [on])';
   croak("Les arguments de \'pixel\' sont : la position en x , la position en y , la couleur et l'état du pixel
    $syntaxe")   if @_<4 or @_>5;
@@ -151,7 +151,8 @@ sub pixel  {
   croak("l'un d'un arguments de position n'est pas compatible avec l'autre
    $syntaxe")   if (ref $y and !ref $x or ref $x and !ref $y);
   croak("Vous etes sortit du canevas définit") if ((!ref $x and !ref $y ) and ($y>$#canevas or $x>(@{$canevas[0]}-1)));
-  my (@y,@x);
+  
+  my (@y, @x);
   if (ref $y) {
        @x = @$x;
        @y = @$y;
@@ -161,11 +162,14 @@ sub pixel  {
       $y[0] = $y;
       $#y = 0;
   }
-  foreach (0..$#y)  {
-    if ($on>=0) {   
-	$canevas[$y[$_]][$x[$_]] = "\003$color,$color \003";
+  $on = 0 unless defined $on;
+  for (0..$#y)  {
+    if ($on >= 0) {   
+      $canevas[$y[$_]][$x[$_]] = "\003$color,$color \003";
     }
-    else { $canevas[$y[$_]][$x[$_]] = " "; }
+    else { 
+      $canevas[$y[$_]][$x[$_]] = " ";
+    }
   }
   $this->{canevas} = [@canevas];
 }
@@ -202,49 +206,67 @@ Soyez prudent car aucun vérification n'est faite le la validité des arguments da
 
 
 sub text  {
-  my ($this,$text,$x,$y,$bolt,$fond) = @_;
+  my ($this, $text, $x, $y, $bolt, $fond) = @_;
   my @canevas = @{$this->{canevas}};
 
+  $bolt = 0 unless defined $bolt;
+  $fond = 0 unless defined $fond;
   #gestion d'erreur
   my $syntaxe = 'Syntaxe correcte : $deco->text($texte,$positionx,$positiony,[$mise_en_forme],[$fond])';
-  croak("les arguments de \'text\' sont le texte, la position x de la première lettre, la position x de la permière lettre, sa mise en forme, [le fond de couleur du texte]
-   $syntaxe") if (@_>6 or @_<4);
-  croak("Mise en forme : $bolt incorrecte regardez la documentation pour avoir des informations sur la mise en forme")
-              if (!ref $bolt and (length($bolt)>3 or $bolt!~/\d/ and $bolt!~/b/) and @_==5);
+
+  croak("les arguments de \'text\' sont le texte, la position x de la première lettre,i".
+	" la position x de la permière lettre, sa mise en forme, [le fond de couleur du texte]
+   $syntaxe") if (@_ > 6 or @_ < 4);
+  
+  croak("Mise en forme : $bolt incorrecte regardez la documentation pour avoir des informations sur la mise en forme")      if (!ref $bolt and (length($bolt) > 3 or $bolt !~ /\d/ and $bolt !~ /b/) and @_ == 5);
+	      
   croak("Un des arguments qui devrai être un nombre de l'est pas
-   $syntaxe") if ($x!~/\d/ or $y!~/\d/);
-  croak("la valeur de fond spécifié est trop grande") if !ref $fond and $fond>15;
-  croak("la couleur de mise en forme est trop grande") if !ref $bolt and $bolt>15;
-  croak("Vous etes sortit du canevas définit") if ($y>$#canevas or $x>(@{$canevas[0]}-1));
+   $syntaxe") if ($x !~ /\d/ or $y !~ /\d/);
+
+  croak("la valeur de fond spécifié est trop grande")  if !ref $fond and $fond > 15;
+  croak("la couleur de mise en forme est trop grande") if !ref $bolt and $bolt > 15;
+  croak("Vous etes sortit du canevas définit")         if ($y > $#canevas or $x > (@{$canevas[0]}-1));
 
   my $a_bolt = $bolt if ref $bolt;
   my $a_fond = $fond if ref $fond;
   my @lettre = split '',$text;
   my $color;
-  foreach my $position(0..$#lettre)  {
+  foreach my $position (0..$#lettre)  {
     $bolt = $a_bolt->[$position] if $a_bolt;
     $fond = $a_fond->[$position] if $a_fond;
     my $v;
     my $fond2 = $fond;
     my $pixel = \$canevas[$y][$x+$position];
+    
     # on redéfinis le fond au besoin
-    $this->pixel($x+$position,$y,$2)    if $$pixel=~/\003(\d|),(\d)/;
-    $fond2||=$2;
+    $this->pixel($x + $position, $y, $2) if $$pixel =~ /\003(\d|),(\d)/;
+    $fond2 ||= $2;
     $v = ',' if $fond or $$pixel ne " ";
+    
     # on place enfin la lettre
-    $$pixel=~s/\s/\002$lettre[$position]\002/                if $bolt eq 'b';
-    ($fond2,$color,$lettre[$position]) = correction($fond2,$color,$lettre[$position]) and $$pixel = "\003${color}${v}${fond2}\002$lettre[$position]\002\003" if ($color) = ($bolt=~/b(\d+)/);
-     ($fond2,$color,$lettre[$position]) = correction($fond2,$color,$lettre[$position]) and $$pixel = "\003${color}${v}${fond2}$lettre[$position]\003"       if ($color) = ($bolt=~/^(\d+)/);
-   ($fond2,$color,$lettre[$position]) = correction($fond2,$color,$lettre[$position]) and $$pixel = "\003${v}${fond2}$lettre[$position]\003" if (!$bolt and !$fond);
-    ($fond2,$color,$lettre[$position]) = correction($fond2,$color,$lettre[$position]) and $$pixel = $lettre[$position] if (!$bolt and !$fond and !$fond2);
-
+    $$pixel=~s/\s/\002$lettre[$position]\002/ if $bolt eq 'b';
+    if (($color) = ($bolt =~ /b(\d+)/)) { #bolt with color
+      ($fond2, $color, $lettre[$position]) = correction($fond2, $color, $lettre[$position]) and 
+      $$pixel = "\003${color}${v}${fond2}\002$lettre[$position]\002\003";
+    }
+    if (($color) = ($bolt =~ /^(\d+)/)) { #only color
+      ($fond2, $color, $lettre[$position]) = correction($fond2, $color, $lettre[$position]) and 
+      $$pixel = "\003${color}${v}${fond2}$lettre[$position]\003";
+    }
+    if (!$bolt and !$fond)              { #euh
+      ($fond2, $color, $lettre[$position]) = correction($fond2, $color, $lettre[$position]) and 
+      $$pixel = "\003${v}${fond2}$lettre[$position]\003";
+    }
+    if (!$bolt and !$fond and !$fond2) { #just text
+      ($fond2, $color, $lettre[$position]) = correction($fond2, $color, $lettre[$position]) and 
+      $$pixel = $lettre[$position];
+    }
     sub correction   {
       #sub qui corrige au besoin pour pouvoir faire aparaître les chiffres
       $_[0] = "0$_[0]" if $_[0] =~ /^\d$/ and $_[2] =~ /^\d$/;
       $_[1] = "0$_[1]" if $_[1] =~ /^\d$/ and $_[2] =~ /^\d$/;
       return @_;
     }
-   
   }
   $this->{canevas} = [@canevas];
 }
@@ -252,8 +274,9 @@ sub text  {
 
 =item rectangle
 
-la méthode rectangle permet de faire facilement des rectangles mais aussi des lignes
-Le syntaxe est la suivante :
+La méthode rectangle permet de faire facilement des rectangles mais aussi des lignes
+
+La syntaxe est la suivante :
 
  $art->rectangle($position_x1,$position_y1,$position_x2,$position_y2,$couleur,[$on]);
 
@@ -265,18 +288,65 @@ x1 et y1 représentent les coordonnées du pixel au coin en haut à gauche, et x2 e
 =cut
 
 sub rectangle  {
-  my ($this,$x1,$y1,$x2,$y2,$color,$on) = @_;
+  my ($this, $x1, $y1, $x2, $y2, $color, $on) = @_;
   foreach my $t1 ($y1..$y2) {
     foreach my $t2 ($x1..$x2)  {
-      $this->pixel($t2,$t1,$color,$on);
+      $this->pixel($t2, $t1, $color, $on);
     }
   }
 }
 
+=item save
+
+La méthode save permet de sauvegarder dans un fichier l'image obtenus pour la recharger par la suite avec
+la méthode load par exemple. C'est un simple fichier avec le texte ascii nécessaire pour l'irc.
+
+La syntaxe est la suivante :
+
+ $art->save($path_to_file);
+
+path_to_file est évidement le chemin vers le fichier
+
+=cut
+
 sub save {
+  my ($this, $fname) = @_;
+  my @canevas = @{$this->{canevas}};
+
+  my $syntax = 'Syntax : $art->save($file_name)';
+  croak("missing argument : $syntax") if ! defined $fname;
+
+  open FILE, ">", $fname or croak "Error opening $fname with write permision : $!";
+  foreach my $t (@canevas) {
+    print FILE join('', @$t), "\n";
+  }
+  close FILE;
 }
 
+=item load
+
+La méthode load permet de charger des fichiers d'image au format utilisé par la méthode save.
+
+La syntaxe est la suivante :
+
+ $art->load($path_to_file)
+
+path_to_file est toujours le chemin vers le fichier
+
+=cut
+
 sub load {
+  my ($this, $fname) = @_;
+  my @canevas = @{$this->{canevas}};
+
+  my $syntax = 'Syntax :$art->load($file_name)';
+  croak("missing argument : $syntax") if ! defined $fname;
+
+  open FILE, "$fname" or croak "Can't open $fname : $!";
+  foreach my $t (<FILE>) {
+    push @canevas, chomp $t;
+  }
+  close FILE;
 }
 
 1;
